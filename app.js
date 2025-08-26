@@ -11,6 +11,11 @@
 // Import Supabase client
 import { supabase, SHIFTS_TABLE } from './supabase.js';
 
+// Debug logging
+console.log('App.js loaded, checking environment variables...');
+console.log('SUPABASE_URL available:', !!import.meta.env.SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY available:', !!import.meta.env.SUPABASE_ANON_KEY);
+
 // DOM elements
 const form = document.getElementById('shiftForm');
 const dateInput = document.getElementById('date');
@@ -34,6 +39,16 @@ const weekSummaryEl = document.getElementById('weekSummary');
 const overallSummaryEl = document.getElementById('overallSummary');
 const avgHourlySummaryEl = document.getElementById('avgHourlySummary');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+// Debug DOM elements
+console.log('DOM elements found:', {
+  form: !!form,
+  dateInput: !!dateInput,
+  startTimeInput: !!startTimeInput,
+  endTimeInput: !!endTimeInput,
+  addBreakBtn: !!addBreakBtn,
+  breaksContainer: !!breaksContainer
+});
 
 // Constants
 // Default MPG used to compute gallons (26 miles per gallon)
@@ -256,6 +271,7 @@ function parseCommaNumber(str) {
  * @param {HTMLInputElement} input - the time input element
  */
 function formatTimeInput(input) {
+  console.log('formatTimeInput called with:', input?.value);
   if (!input.value.trim()) return;
   
   const timeStr = input.value.trim();
@@ -265,7 +281,11 @@ function formatTimeInput(input) {
     const hours = match[1];
     const minutes = match[2];
     const period = match[3].toUpperCase();
-    input.value = `${hours}:${minutes} ${period}`;
+    const formatted = `${hours}:${minutes} ${period}`;
+    input.value = formatted;
+    console.log('Formatted time:', timeStr, '->', formatted);
+  } else {
+    console.log('Time format not matched:', timeStr);
   }
 }
 
@@ -286,6 +306,14 @@ function validateTimeInput(input) {
  * Recalculate all derived fields based on current inputs.
  */
 function recalculate() {
+  console.log('Recalculate called with values:', {
+    startTime: startTimeInput?.value,
+    endTime: endTimeInput?.value,
+    milesStart: milesStartInput?.value,
+    milesEnd: milesEndInput?.value,
+    grossPay: netEarningsInput?.value
+  });
+  
   // Compute total shift and break durations
   const shiftMinutes = calculateTimeDifferenceMinutes(startTimeInput.value, endTimeInput.value);
   const breakMinutes = getTotalBreakMinutes();
@@ -484,6 +512,9 @@ function resetForm() {
  * Add a new break row to the breaks container.
  */
 function addBreakRow(startValue = '', endValue = '') {
+  console.log('addBreakRow called with:', { startValue, endValue });
+  console.log('breaksContainer exists:', !!breaksContainer);
+  
   const div = document.createElement('div');
   div.classList.add('break-entry');
   const startInput = document.createElement('input');
@@ -520,58 +551,79 @@ function addBreakRow(startValue = '', endValue = '') {
   div.appendChild(endInput);
   div.appendChild(removeBtn);
   breaksContainer.appendChild(div);
+  console.log('Break row added successfully');
 }
 
 // Attach event listeners to form fields for live calculation
+console.log('Setting up form event listeners...');
 [startTimeInput, endTimeInput, netEarningsInput, milesStartInput, milesEndInput, gallonsUsedInput].forEach(el => {
-  el.addEventListener('input', recalculate);
+  if (el) {
+    el.addEventListener('input', recalculate);
+    console.log('Added input listener to:', el.id);
+  } else {
+    console.warn('Element not found for input listener');
+  }
 });
 
 // Add time validation and formatting for start and end time inputs
 [startTimeInput, endTimeInput].forEach(input => {
-  input.addEventListener('blur', () => {
-    formatTimeInput(input);
-    validateTimeInput(input);
-  });
+  if (input) {
+    input.addEventListener('blur', () => {
+      formatTimeInput(input);
+      validateTimeInput(input);
+    });
+    console.log('Added blur listener to:', input.id);
+  }
 });
 
 // Format odometer inputs with commas on blur
 [milesStartInput, milesEndInput].forEach(input => {
-  input.addEventListener('blur', () => {
-    const value = parseCommaNumber(input.value);
-    if (!isNaN(value)) {
-      input.value = formatWithCommas(value);
-    }
-    recalculate();
-  });
+  if (input) {
+    input.addEventListener('blur', () => {
+      const value = parseCommaNumber(input.value);
+      if (!isNaN(value)) {
+        input.value = formatWithCommas(value);
+      }
+      recalculate();
+    });
+    console.log('Added odometer blur listener to:', input.id);
+  }
 });
 
 // Add break button handler
-addBreakBtn.addEventListener('click', () => {
-  addBreakRow();
-});
+if (addBreakBtn) {
+  addBreakBtn.addEventListener('click', () => {
+    console.log('Add break button clicked!');
+    addBreakRow();
+  });
+  console.log('Added click listener to add break button');
+} else {
+  console.error('Add break button not found!');
+}
 
 // Form submission handler
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  
-  // Prevent submission if we're still setting up edit mode
-  if (isSettingUpEdit) {
-    console.log('Form submission blocked - still setting up edit mode');
-    return;
-  }
-  
-  // Validate time inputs before submission
-  if (!validateTimeInput(startTimeInput) || !validateTimeInput(endTimeInput)) {
-    alert('Please enter valid start and end times in the format "8:31 PM" or "12:08 AM"');
-    return;
-  }
-  
-  // Check if we're in edit mode
-  const isEditMode = editingIndex >= 0;
-  const editIndex = editingIndex;
-  
-  console.log('Form submission - Edit mode:', isEditMode, 'Edit index:', editIndex);
+if (form) {
+  form.addEventListener('submit', event => {
+    console.log('Form submission event triggered');
+    event.preventDefault();
+    
+    // Prevent submission if we're still setting up edit mode
+    if (isSettingUpEdit) {
+      console.log('Form submission blocked - still setting up edit mode');
+      return;
+    }
+    
+    // Validate time inputs before submission
+    if (!validateTimeInput(startTimeInput) || !validateTimeInput(endTimeInput)) {
+      alert('Please enter valid start and end times in the format "8:31 PM" or "12:08 AM"');
+      return;
+    }
+    
+    // Check if we're in edit mode
+    const isEditMode = editingIndex >= 0;
+    const editIndex = editingIndex;
+    
+    console.log('Form submission - Edit mode:', isEditMode, 'Edit index:', editIndex);
   
   // Parse inputs
   const date = dateInput.value;
@@ -643,9 +695,12 @@ form.addEventListener('submit', event => {
     updateSummaries();
   });
   
-  // Reset form to add mode
+  // Reset form and exit edit mode
   resetForm();
-});
+  });
+} else {
+  console.error('Form not found!');
+}
 
 /**
  * Render entries into the entries container as a table.
@@ -1124,19 +1179,30 @@ if ('serviceWorker' in navigator) {
 
 // Initialise
 loadEntries().then(() => {
+  console.log('Data loaded successfully, initializing admin menu...');
   // Initialize admin menu after data is loaded
   initAdminMenu();
   
   // Initialize summary toggle
   const summaryToggle = document.getElementById('summaryToggle');
   if (summaryToggle) {
+    console.log('Summary toggle found, adding event listener...');
     summaryToggle.addEventListener('change', (event) => {
       showGrossValues = event.target.checked;
       updateSummaries();
     });
+  } else {
+    console.warn('Summary toggle not found!');
   }
+  
+  console.log('Initialization complete!');
 }).catch(err => {
   console.error('Failed to initialize app:', err);
   // Still initialize admin menu even if loading fails
-  initAdminMenu();
+  try {
+    initAdminMenu();
+    console.log('Admin menu initialized despite loading failure');
+  } catch (adminErr) {
+    console.error('Failed to initialize admin menu:', adminErr);
+  }
 });
