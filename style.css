@@ -257,7 +257,7 @@ main {
 
 /* Ensure date field is left-aligned */
 .form-group input[type="date"] {
-  text-align: left;
+  text-align: left !important;
 }
 
 .form-group label {
