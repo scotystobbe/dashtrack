@@ -282,3 +282,253 @@ main {
 .delete-btn:hover {
   text-decoration: underline;
 }
+
+/* Admin Menu Styles */
+.admin-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.admin-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.admin-menu-btn:hover {
+  background-color: var(--surface-alt);
+}
+
+.hamburger-line {
+  width: 20px;
+  height: 2px;
+  background-color: var(--text);
+  transition: all 0.3s;
+}
+
+.admin-menu-btn.active .hamburger-line:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.admin-menu-btn.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.admin-menu-btn.active .hamburger-line:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -6px);
+}
+
+.admin-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 320px;
+  background-color: var(--surface);
+  border: 1px solid var(--surface-alt);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.admin-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--surface-alt);
+}
+
+.admin-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.close-admin-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-admin-btn:hover {
+  background-color: var(--surface-alt);
+  color: var(--text);
+}
+
+.admin-content {
+  padding: 1rem;
+}
+
+.storage-status,
+.data-actions {
+  margin-bottom: 1.5rem;
+}
+
+.storage-status h4,
+.data-actions h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#storageStatusText {
+  padding: 0.75rem;
+  background-color: var(--bg);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.admin-btn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--surface-alt);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.admin-btn:hover {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.admin-btn.danger {
+  border-color: #f44336;
+  color: #f44336;
+}
+
+.admin-btn.danger:hover {
+  background-color: #f44336;
+  color: var(--bg);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-dropdown {
+    width: 280px;
+    right: -20px;
+  }
+  
+  .admin-dropdown::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: 28px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid var(--surface);
+  }
+}
+
+/* Clear Data Modal Styles */
+.clear-data-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.clear-data-content {
+  background-color: var(--surface);
+  border: 1px solid var(--surface-alt);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+.clear-data-content h3 {
+  margin: 0 0 1rem 0;
+  color: #f44336;
+  font-size: 1.3rem;
+}
+
+.clear-data-content p {
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.clear-data-content p:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+.clear-data-input {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--bg);
+  border: 2px solid var(--surface-alt);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+
+.clear-data-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.clear-data-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.clear-data-buttons .admin-btn {
+  margin: 0;
+  min-width: 100px;
+}

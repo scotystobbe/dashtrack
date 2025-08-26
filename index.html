@@ -18,6 +18,33 @@
   <header class="header">
     <img src="icons/logo-192.png" alt="DashTrack logo" class="logo" />
     <h1>DashTrack</h1>
+    <div class="admin-menu">
+      <button id="adminMenuBtn" class="admin-menu-btn" aria-label="Admin menu">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+      <div id="adminDropdown" class="admin-dropdown">
+        <div class="admin-header">
+          <h3>Admin Panel</h3>
+          <button id="closeAdminBtn" class="close-admin-btn">&times;</button>
+        </div>
+        <div class="admin-content">
+          <div class="storage-status" id="storageStatusSection">
+            <h4>Storage Status</h4>
+            <div id="storageStatusText"></div>
+          </div>
+          <div class="data-actions">
+            <h4>Data Management</h4>
+            <button id="exportCsvBtn" class="admin-btn">Export CSV</button>
+            <button id="exportJsonBtn" class="admin-btn">Export JSON Backup</button>
+            <input type="file" id="importJsonInput" accept=".json" style="display: none;">
+            <button id="importJsonBtn" class="admin-btn">Import JSON Backup</button>
+            <button id="clearAllDataBtn" class="admin-btn danger">Clear All Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
   <main>
     <!-- Shift entry form -->
@@ -131,9 +158,6 @@
     <!-- Entries list -->
     <section id="entriesSection" class="entries-section">
       <h2>Recorded Shifts</h2>
-      <div class="export-actions">
-        <button id="exportCsvBtn" type="button">Export CSV</button>
-      </div>
       <div id="entriesContainer" class="entries-container"></div>
     </section>
   </main>

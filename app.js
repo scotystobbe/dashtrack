@@ -2,7 +2,7 @@
  * DashTrack application logic
  *
  * Handles form input, calculation of durations, miles, gas costs and hourly rates,
- * persists shift data to localStorage, displays recorded shifts, allows deletion,
+ * persists shift data to IndexedDB, displays recorded shifts, allows deletion,
  * exports data to CSV, and calculates weekly and overall summaries. Breaks are
  * supported: users can add any number of break intervals which reduce the
  * working time for the shift. All computations are updated live on input.
@@ -40,6 +40,92 @@ const DEFAULT_GAS_PRICE = 3.272;
 
 // State
 let entries = [];
+let db = null;
+
+// IndexedDB setup
+const DB_NAME = 'DashTrackDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'shifts';
+
+/**
+ * Initialize IndexedDB
+ */
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      // Update storage status if admin menu is initialized
+      if (typeof updateStorageStatus === 'function') {
+        updateStorageStatus();
+      }
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('date', 'date', { unique: false });
+      }
+    };
+  });
+}
+
+/**
+ * Save entries to IndexedDB
+ */
+async function saveEntries() {
+  try {
+    if (!db) return;
+    
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    // Clear existing data
+    await store.clear();
+    
+    // Add all entries
+    for (const entry of entries) {
+      await store.add(entry);
+    }
+    
+    // Also save to localStorage as backup
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      console.warn('Failed to save to localStorage backup:', localStorageErr);
+    }
+    
+  } catch (err) {
+    console.error('Failed to save to IndexedDB, falling back to localStorage:', err);
+    // Fallback to localStorage
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      console.error('Failed to save to localStorage fallback:', localStorageErr);
+      throw new Error('All storage methods failed');
+    }
+  }
+}
+
+/**
+ * Load entries from IndexedDB
+ */
+async function loadEntriesFromDB() {
+  if (!db) return [];
+  
+  const transaction = db.transaction([STORE_NAME], 'readonly');
+  const store = transaction.objectStore(STORE_NAME);
+  const request = store.getAll();
+  
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
 /**
  * Utility: parse a time string ("HH:MM") into minutes.
@@ -283,9 +369,16 @@ form.addEventListener('submit', event => {
     breaks
   };
   entries.push(entry);
-  localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
-  renderEntries();
-  updateSummaries();
+  // Save to IndexedDB and update UI
+  saveEntries().then(() => {
+    renderEntries();
+    updateSummaries();
+  }).catch(err => {
+    console.error('Failed to save entry:', err);
+    // Still update UI even if save fails
+    renderEntries();
+    updateSummaries();
+  });
   // Reset form and computed fields
   form.reset();
   shiftDurationEl.value = '';
@@ -350,9 +443,16 @@ function renderEntries() {
     btn.addEventListener('click', evt => {
       const idx = parseInt(evt.target.dataset.index, 10);
       entries.splice(idx, 1);
-      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
-      renderEntries();
-      updateSummaries();
+      // Save to IndexedDB and update UI
+      saveEntries().then(() => {
+        renderEntries();
+        updateSummaries();
+      }).catch(err => {
+        console.error('Failed to delete entry:', err);
+        // Still update UI even if save fails
+        renderEntries();
+        updateSummaries();
+      });
     });
   });
 }
@@ -476,22 +576,251 @@ function exportToCsv() {
   URL.revokeObjectURL(url);
 }
 
-// Export button handler
-exportCsvBtn.addEventListener('click', exportToCsv);
+// Export button handler (now handled in admin menu)
+// exportCsvBtn.addEventListener('click', exportToCsv);
 
-// Load stored entries on startup
-function loadEntries() {
-  const stored = localStorage.getItem('dashtrack_entries');
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        entries = parsed;
-      }
-    } catch (err) {
-      console.error('Failed to parse stored data', err);
+// Global function to update storage status
+function updateStorageStatus() {
+  const storageStatusText = document.getElementById('storageStatusText');
+  const storageStatusSection = document.getElementById('storageStatusSection');
+  if (!storageStatusText || !storageStatusSection) return;
+  
+  if (db) {
+    // Don't show anything if using IndexedDB
+    storageStatusSection.style.display = 'none';
+  } else {
+    // Only show warning if using localStorage fallback
+    storageStatusText.innerHTML = '<span style="color: #FF9800;">⚠ Using localStorage fallback - data may be less persistent</span>';
+    storageStatusSection.style.display = 'block';
+  }
+}
+
+// Initialize admin menu functionality
+function initAdminMenu() {
+  const adminMenuBtn = document.getElementById('adminMenuBtn');
+  const adminDropdown = document.getElementById('adminDropdown');
+  const closeAdminBtn = document.getElementById('closeAdminBtn');
+  
+  // Toggle admin menu
+  function toggleAdminMenu() {
+    const isOpen = adminDropdown.classList.contains('show');
+    if (isOpen) {
+      adminDropdown.classList.remove('show');
+      adminMenuBtn.classList.remove('active');
+    } else {
+      adminDropdown.classList.add('show');
+      adminMenuBtn.classList.add('active');
+      updateStorageStatus();
     }
   }
+  
+  // Close admin menu
+  function closeAdminMenu() {
+    adminDropdown.classList.remove('show');
+    adminMenuBtn.classList.remove('active');
+  }
+  
+  // Event listeners
+  adminMenuBtn.addEventListener('click', toggleAdminMenu);
+  closeAdminBtn.addEventListener('click', closeAdminMenu);
+  
+  // Close menu when clicking outside
+  document.addEventListener('click', (event) => {
+    if (!adminMenuBtn.contains(event.target) && !adminDropdown.contains(event.target)) {
+      closeAdminMenu();
+    }
+  });
+  
+  // Close menu on escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeAdminMenu();
+    }
+  });
+  
+  // Initialize storage status
+  updateStorageStatus();
+  
+  // Add event handlers for admin buttons
+  document.getElementById('exportCsvBtn').addEventListener('click', exportToCsv);
+  document.getElementById('exportJsonBtn').addEventListener('click', exportToJson);
+  document.getElementById('importJsonBtn').addEventListener('click', () => {
+    document.getElementById('importJsonInput').click();
+  });
+  document.getElementById('importJsonInput').addEventListener('change', importFromJson);
+  document.getElementById('clearAllDataBtn').addEventListener('click', () => {
+    showClearDataConfirmation();
+  });
+}
+
+/**
+ * Show custom confirmation modal for clearing all data
+ */
+function showClearDataConfirmation() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.className = 'clear-data-modal';
+  modal.innerHTML = `
+    <div class="clear-data-content">
+      <h3>⚠️ Clear All Data</h3>
+      <p>This action will permanently delete ALL your shift data. This cannot be undone.</p>
+      <p><strong>To confirm, type "CLEAR ALL DATA" below:</strong></p>
+      <input type="text" id="clearDataInput" placeholder="Type CLEAR ALL DATA" class="clear-data-input">
+      <div class="clear-data-buttons">
+        <button id="cancelClearBtn" class="admin-btn">Cancel</button>
+        <button id="confirmClearBtn" class="admin-btn danger" disabled>Clear All Data</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  const input = modal.querySelector('#clearDataInput');
+  const confirmBtn = modal.querySelector('#confirmClearBtn');
+  const cancelBtn = modal.querySelector('#cancelClearBtn');
+  
+  // Enable/disable confirm button based on input
+  input.addEventListener('input', () => {
+    confirmBtn.disabled = input.value !== 'CLEAR ALL DATA';
+  });
+  
+  // Handle confirmation
+  confirmBtn.addEventListener('click', async () => {
+    if (input.value === 'CLEAR ALL DATA') {
+      entries = [];
+      try {
+        await saveEntries();
+        renderEntries();
+        updateSummaries();
+        alert('All data has been cleared.');
+        modal.remove();
+      } catch (err) {
+        console.error('Failed to clear data:', err);
+        alert('Failed to clear data. Please try again.');
+      }
+    }
+  });
+  
+  // Handle cancellation
+  cancelBtn.addEventListener('click', () => {
+    modal.remove();
+  });
+  
+  // Close on escape key
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+    }
+  });
+  
+  // Focus input
+  input.focus();
+}
+
+/**
+ * Export all entries to a JSON file
+ */
+function exportToJson() {
+  if (entries.length === 0) return;
+  
+  const data = {
+    exportDate: new Date().toISOString(),
+    version: '1.0',
+    entries: entries
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dashtrack_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Import entries from a JSON file
+ */
+function importFromJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.entries && Array.isArray(data.entries)) {
+        // Merge with existing entries, avoiding duplicates by date
+        const existingDates = new Set(entries.map(e => e.date));
+        const newEntries = data.entries.filter(e => !existingDates.has(e.date));
+        
+        if (newEntries.length > 0) {
+          entries = [...entries, ...newEntries];
+          await saveEntries();
+          renderEntries();
+          updateSummaries();
+          alert(`Successfully imported ${newEntries.length} new entries.`);
+        } else {
+          alert('No new entries to import (all dates already exist).');
+        }
+      } else {
+        alert('Invalid backup file format.');
+      }
+    } catch (err) {
+      console.error('Failed to parse backup file:', err);
+      alert('Failed to parse backup file. Please check the file format.');
+    }
+  };
+  reader.readAsText(file);
+  
+  // Reset file input
+  event.target.value = '';
+}
+
+// Load stored entries on startup
+async function loadEntries() {
+  try {
+    await initDB(); // Initialize IndexedDB
+    const storedEntries = await loadEntriesFromDB();
+    if (storedEntries && storedEntries.length > 0) {
+      entries = storedEntries;
+      console.log('Loaded entries from IndexedDB:', storedEntries.length);
+    } else {
+      // Fallback to localStorage if IndexedDB is empty
+      const fallbackData = localStorage.getItem('dashtrack_entries');
+      if (fallbackData) {
+        try {
+          const parsed = JSON.parse(fallbackData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            entries = parsed;
+            console.log('Loaded entries from localStorage fallback:', parsed.length);
+            // Migrate to IndexedDB
+            await saveEntries();
+          }
+        } catch (err) {
+          console.error('Failed to parse localStorage fallback:', err);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('IndexedDB failed, falling back to localStorage:', err);
+    // Fallback to localStorage
+    const fallbackData = localStorage.getItem('dashtrack_entries');
+    if (fallbackData) {
+      try {
+        const parsed = JSON.parse(fallbackData);
+        if (Array.isArray(parsed)) {
+          entries = parsed;
+        }
+      } catch (err) {
+        console.error('Failed to parse localStorage fallback:', err);
+      }
+    }
+  }
+  
   renderEntries();
   updateSummaries();
   // Set default gas price on load if input is empty
@@ -511,4 +840,11 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialise
-loadEntries();
+loadEntries().then(() => {
+  // Initialize admin menu after data is loaded
+  initAdminMenu();
+}).catch(err => {
+  console.error('Failed to initialize app:', err);
+  // Still initialize admin menu even if loading fails
+  initAdminMenu();
+});
