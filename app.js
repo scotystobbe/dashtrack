@@ -2,11 +2,14 @@
  * DashTrack application logic
  *
  * Handles form input, calculation of durations, miles, gas costs and hourly rates,
- * persists shift data to IndexedDB, displays recorded shifts, allows deletion,
+ * persists shift data to Supabase cloud database, displays recorded shifts, allows deletion,
  * exports data to CSV, and calculates weekly and overall summaries. Breaks are
  * supported: users can add any number of break intervals which reduce the
  * working time for the shift. All computations are updated live on input.
  */
+
+// Import Supabase client
+import { supabase, SHIFTS_TABLE } from './supabase.js';
 
 // DOM elements
 const form = document.getElementById('shiftForm');
@@ -40,58 +43,70 @@ const DEFAULT_GAS_PRICE = 3.272;
 
 // State
 let entries = [];
-let db = null;
 let editingIndex = -1; // Track which entry is being edited (-1 means not editing)
 let isSettingUpEdit = false; // Flag to prevent form submission during edit setup
 
-// IndexedDB setup
-const DB_NAME = 'DashTrackDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'shifts';
+// Supabase table name
+const SHIFTS_TABLE_NAME = SHIFTS_TABLE;
 
 /**
- * Initialize IndexedDB
+ * Initialize Supabase connection
  */
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+async function initSupabase() {
+  try {
+    // Test the connection by fetching a single record
+    const { data, error } = await supabase
+      .from(SHIFTS_TABLE_NAME)
+      .select('id')
+      .limit(1);
     
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      db = request.result;
-      // Update storage status if admin menu is initialized
-      if (typeof updateStorageStatus === 'function') {
-        updateStorageStatus();
-      }
-      resolve(db);
-    };
+    if (error) {
+      console.error('Supabase connection error:', error);
+      throw error;
+    }
     
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('date', 'date', { unique: false });
-      }
-    };
-  });
+    console.log('Supabase connected successfully');
+    
+    // Update storage status if admin menu is initialized
+    if (typeof updateStorageStatus === 'function') {
+      updateStorageStatus();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize Supabase:', error);
+    throw error;
+  }
 }
 
 /**
- * Save entries to IndexedDB
+ * Save entries to Supabase
  */
 async function saveEntries() {
   try {
-    if (!db) return;
+    // Clear existing data first
+    const { error: deleteError } = await supabase
+      .from(SHIFTS_TABLE_NAME)
+      .delete()
+      .neq('id', 0); // Delete all records
     
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
+    if (deleteError) {
+      console.error('Error clearing existing data:', deleteError);
+      throw deleteError;
+    }
     
-    // Clear existing data
-    await store.clear();
-    
-    // Add all entries
-    for (const entry of entries) {
-      await store.add(entry);
+    // Insert all entries
+    if (entries.length > 0) {
+      const { data, error } = await supabase
+        .from(SHIFTS_TABLE_NAME)
+        .insert(entries);
+      
+      if (error) {
+        console.error('Error saving entries:', error);
+        throw error;
+      }
+      
+      console.log('Entries saved to Supabase:', data);
     }
     
     // Also save to localStorage as backup
@@ -834,14 +849,21 @@ function updateStorageStatus() {
   const storageStatusSection = document.getElementById('storageStatusSection');
   if (!storageStatusText || !storageStatusSection) return;
   
-  if (db) {
-    // Don't show anything if using IndexedDB
-    storageStatusSection.style.display = 'none';
-  } else {
-    // Only show warning if using localStorage fallback
-    storageStatusText.innerHTML = '<span style="color: #FF9800;">⚠ Using localStorage fallback - data may be less persistent</span>';
+  // Check if Supabase is working by testing connection
+  supabase.from(SHIFTS_TABLE_NAME).select('id').limit(1).then(({ error }) => {
+    if (error) {
+      // Show warning if Supabase is not working
+      storageStatusText.innerHTML = '<span style="color: #FF9800;">⚠ Supabase connection failed - using localStorage fallback</span>';
+      storageStatusSection.style.display = 'block';
+    } else {
+      // Don't show anything if using Supabase
+      storageStatusSection.style.display = 'none';
+    }
+  }).catch(() => {
+    // Show warning if Supabase connection fails
+    storageStatusText.innerHTML = '<span style="color: #FF9800;">⚠ Supabase connection failed - using localStorage fallback</span>';
     storageStatusSection.style.display = 'block';
-  }
+  });
 }
 
 // Global variable to track summary display mode
@@ -1035,13 +1057,24 @@ function importFromJson(event) {
 // Load stored entries on startup
 async function loadEntries() {
   try {
-    await initDB(); // Initialize IndexedDB
-    const storedEntries = await loadEntriesFromDB();
-    if (storedEntries && storedEntries.length > 0) {
-      entries = storedEntries;
-      console.log('Loaded entries from IndexedDB:', storedEntries.length);
+    await initSupabase(); // Initialize Supabase connection
+    
+    // Load from Supabase
+    const { data, error } = await supabase
+      .from(SHIFTS_TABLE_NAME)
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error loading from Supabase:', error);
+      throw error;
+    }
+    
+    if (data && data.length > 0) {
+      entries = data;
+      console.log('Loaded entries from Supabase:', data.length);
     } else {
-      // Fallback to localStorage if IndexedDB is empty
+      // Fallback to localStorage if Supabase is empty
       const fallbackData = localStorage.getItem('dashtrack_entries');
       if (fallbackData) {
         try {
@@ -1049,7 +1082,7 @@ async function loadEntries() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             entries = parsed;
             console.log('Loaded entries from localStorage fallback:', parsed.length);
-            // Migrate to IndexedDB
+            // Migrate to Supabase
             await saveEntries();
           }
         } catch (err) {
@@ -1058,7 +1091,7 @@ async function loadEntries() {
       }
     }
   } catch (err) {
-    console.error('IndexedDB failed, falling back to localStorage:', err);
+    console.error('Supabase failed, falling back to localStorage:', err);
     // Fallback to localStorage
     const fallbackData = localStorage.getItem('dashtrack_entries');
     if (fallbackData) {
