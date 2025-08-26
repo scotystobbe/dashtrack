@@ -41,6 +41,8 @@ const DEFAULT_GAS_PRICE = 3.272;
 // State
 let entries = [];
 let db = null;
+let editingIndex = -1; // Track which entry is being edited (-1 means not editing)
+let isSettingUpEdit = false; // Flag to prevent form submission during edit setup
 
 // IndexedDB setup
 const DB_NAME = 'DashTrackDB';
@@ -128,24 +130,59 @@ async function loadEntriesFromDB() {
 }
 
 /**
- * Utility: parse a time string ("HH:MM") into minutes.
+ * Utility: parse a time string (e.g., "8:31 PM", "12:08 AM") into minutes.
  * If the end time is smaller than the start time (i.e., crosses midnight),
- * add 24 hours. Both times are strings of format "HH:MM".
- * @param {string} start - start time HH:MM
- * @param {string} end - end time HH:MM
+ * add 24 hours. Times are strings in 12-hour format.
+ * @param {string} start - start time (e.g., "8:31 PM")
+ * @param {string} end - end time (e.g., "12:08 AM")
  * @returns {number} duration in minutes
  */
 function calculateTimeDifferenceMinutes(start, end) {
   if (!start || !end) return 0;
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  let startMinutes = sh * 60 + sm;
-  let endMinutes = eh * 60 + em;
+  
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
+  
+  if (startMinutes === null || endMinutes === null) return 0;
+  
+  let duration = endMinutes - startMinutes;
   // if crossing midnight, add 24h to end
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
+  if (duration < 0) {
+    duration += 24 * 60;
   }
-  return endMinutes - startMinutes;
+  return duration;
+}
+
+/**
+ * Parse a 12-hour time string to minutes since midnight
+ * @param {string} timeStr - time string like "8:31 PM" or "12:08 AM"
+ * @returns {number|null} minutes since midnight, or null if invalid
+ */
+function parseTimeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  
+  // Remove extra spaces and convert to uppercase
+  const cleanTime = timeStr.trim().toUpperCase();
+  
+  // Match patterns like "8:31 PM", "12:08 AM", "8:31PM", etc.
+  const match = cleanTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (!match) return null;
+  
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3];
+  
+  // Validate hours and minutes
+  if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return null;
+  
+  // Convert to 24-hour format
+  if (period === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0;
+  }
+  
+  return hours * 60 + minutes;
 }
 
 /**
@@ -200,6 +237,37 @@ function parseCommaNumber(str) {
 }
 
 /**
+ * Auto-format time input to proper case (e.g., "8:31 pm" -> "8:31 PM")
+ * @param {HTMLInputElement} input - the time input element
+ */
+function formatTimeInput(input) {
+  if (!input.value.trim()) return;
+  
+  const timeStr = input.value.trim();
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(am|pm|AM|PM|Am|Pm|aM|pM)$/i);
+  
+  if (match) {
+    const hours = match[1];
+    const minutes = match[2];
+    const period = match[3].toUpperCase();
+    input.value = `${hours}:${minutes} ${period}`;
+  }
+}
+
+/**
+ * Validate time input (no visual feedback, just validation)
+ * @param {HTMLInputElement} input - the time input element
+ * @returns {boolean} true if valid, false if invalid
+ */
+function validateTimeInput(input) {
+  if (!input.value.trim()) {
+    return true; // Empty is considered valid (not required)
+  }
+  
+  return parseTimeToMinutes(input.value) !== null;
+}
+
+/**
  * Recalculate all derived fields based on current inputs.
  */
 function recalculate() {
@@ -208,14 +276,14 @@ function recalculate() {
   const breakMinutes = getTotalBreakMinutes();
   const workingMinutes = Math.max(shiftMinutes - breakMinutes, 0);
   if (shiftMinutes > 0) {
-    shiftDurationEl.value = formatMinutes(shiftMinutes);
+    shiftDurationEl.textContent = formatMinutes(shiftMinutes);
   } else {
-    shiftDurationEl.value = '';
+    shiftDurationEl.textContent = '–';
   }
   if (workingMinutes > 0) {
-    workingDurationEl.value = formatMinutes(workingMinutes);
+    workingDurationEl.textContent = formatMinutes(workingMinutes);
   } else {
-    workingDurationEl.value = '';
+    workingDurationEl.textContent = '–';
   }
   // Miles driven
   const milesStart = parseCommaNumber(milesStartInput.value);
@@ -223,44 +291,177 @@ function recalculate() {
   let miles = NaN;
   if (!isNaN(milesStart) && !isNaN(milesEnd)) {
     miles = milesEnd - milesStart;
-    milesDrivenEl.value = miles.toFixed(2);
+    milesDrivenEl.textContent = Math.round(miles).toString();
   } else {
-    milesDrivenEl.value = '';
+    milesDrivenEl.textContent = '–';
   }
   // Gallons used: automatically computed from miles driven and a fixed MPG (26 mpg)
   let gallons = NaN;
   if (!isNaN(miles)) {
     gallons = miles / 26;
-    gallonsUsedInput.value = gallons.toFixed(2);
+    gallonsUsedInput.textContent = gallons.toFixed(2);
   } else {
-    gallonsUsedInput.value = '';
+    gallonsUsedInput.textContent = '–';
   }
   // Gas cost
-  const pricePerGal = parseFloat(dollarsPerGalInput.value);
+  const pricePerGal = parseFloat(dollarsPerGalInput.textContent.replace('$', ''));
   let gasCost = 0;
   if (!isNaN(gallons) && !isNaN(pricePerGal)) {
     gasCost = gallons * pricePerGal;
-    gasCostEl.value = gasCost.toFixed(2);
+    gasCostEl.textContent = '$' + gasCost.toFixed(2);
   } else {
-    gasCostEl.value = '';
+    gasCostEl.textContent = '–';
   }
   // Gross pay from input
   const grossPay = parseFloat(netEarningsInput.value);
   if (!isNaN(grossPay)) {
     // Net profit = gross pay minus gas cost
     const netProfit = grossPay - (gasCost || 0);
-    grossEarningsEl.value = netProfit.toFixed(2);
+    grossEarningsEl.textContent = '$' + netProfit.toFixed(2);
   } else {
-    grossEarningsEl.value = '';
+    grossEarningsEl.textContent = '–';
   }
   // Hourly earnings based on net profit
   if (!isNaN(grossPay) && workingMinutes > 0) {
     const netProfit = grossPay - (gasCost || 0);
     const hours = workingMinutes / 60;
     const hourly = netProfit / hours;
-    hourlyRateEl.value = hourly.toFixed(2);
+    hourlyRateEl.textContent = '$' + hourly.toFixed(2);
   } else {
-    hourlyRateEl.value = '';
+    hourlyRateEl.textContent = '–';
+  }
+}
+
+/**
+ * Edit an existing shift entry
+ * @param {number} index - index of the entry to edit
+ */
+function editEntry(index) {
+  const entry = entries[index];
+  if (!entry) return;
+  
+  console.log('Editing entry at index:', index, 'Entry:', entry);
+  console.log('Entry keys:', Object.keys(entry));
+  console.log('Entry values:', Object.values(entry));
+  
+  // Set flag to prevent form submission during setup
+  isSettingUpEdit = true;
+  
+  // Populate form with entry data
+  console.log('Populating form fields...');
+  console.log('Date input:', dateInput, 'Value:', entry.date);
+  console.log('Start time input:', startTimeInput, 'Value:', entry.start);
+  console.log('End time input:', endTimeInput, 'Value:', entry.end);
+  console.log('Net earnings input:', netEarningsInput, 'Value:', entry.gross);
+  console.log('Miles start input:', milesStartInput, 'Value:', entry.milesStart);
+  console.log('Miles end input:', milesEndInput, 'Value:', entry.milesEnd);
+  
+  dateInput.value = entry.date;
+  startTimeInput.value = entry.start;
+  endTimeInput.value = entry.end;
+  netEarningsInput.value = entry.gross.toFixed(2);
+  milesStartInput.value = entry.milesStart.toFixed(0);
+  milesEndInput.value = entry.milesEnd.toFixed(0);
+  
+  console.log('After setting values:');
+  console.log('Date input value:', dateInput.value);
+  console.log('Start time input value:', startTimeInput.value);
+  console.log('End time input value:', endTimeInput.value);
+  console.log('Net earnings input value:', netEarningsInput.value);
+  console.log('Miles start input value:', milesStartInput.value);
+  console.log('Miles end input value:', milesEndInput.value);
+  
+  // Clear existing breaks and add entry breaks
+  breaksContainer.innerHTML = '';
+  if (entry.breaks && entry.breaks.length > 0) {
+    entry.breaks.forEach(breakEntry => {
+      addBreakRow(breakEntry.start, breakEntry.end);
+    });
+  }
+  
+  // Change form submit behavior to update instead of add
+  editingIndex = index;
+  
+  // Recalculate to update display fields (after setting edit mode)
+  recalculate();
+  
+  console.log('Set edit mode - index:', editingIndex);
+  
+  // Update submit button text
+  const submitBtn = form.querySelector('button.submit');
+  console.log('Submit button found:', submitBtn);
+  if (submitBtn) {
+    submitBtn.textContent = 'Update Shift';
+    console.log('Submit button text changed to:', submitBtn.textContent);
+  } else {
+    console.error('Submit button not found!');
+  }
+  
+  // Add delete button to form
+  let deleteBtn = form.querySelector('.delete-edit-btn');
+  if (!deleteBtn) {
+    deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.classList.add('delete-edit-btn');
+    deleteBtn.textContent = 'Delete Shift';
+    deleteBtn.style.backgroundColor = '#dc3545';
+    deleteBtn.style.marginLeft = '10px';
+    deleteBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete this shift?')) {
+        entries.splice(index, 1);
+        saveEntries().then(() => {
+          renderEntries();
+          updateSummaries();
+          resetForm();
+        }).catch(err => {
+          console.error('Failed to delete entry:', err);
+          renderEntries();
+          updateSummaries();
+          resetForm();
+        });
+      }
+    });
+    submitBtn.parentNode.appendChild(deleteBtn);
+  }
+  
+  // Scroll to form
+  form.scrollIntoView({ behavior: 'smooth' });
+  
+  // Clear the setup flag after a short delay to allow form to settle
+  setTimeout(() => {
+    isSettingUpEdit = false;
+    console.log('Edit setup complete, form submission now allowed');
+  }, 100);
+}
+
+/**
+ * Reset form to add mode
+ */
+function resetForm() {
+  editingIndex = -1;
+  
+  // Reset form and computed fields
+  form.reset();
+  shiftDurationEl.textContent = '–';
+  workingDurationEl.textContent = '–';
+  milesDrivenEl.textContent = '–';
+  gallonsUsedInput.textContent = '–';
+  dollarsPerGalInput.textContent = '$' + DEFAULT_GAS_PRICE.toFixed(2);
+  gasCostEl.textContent = '–';
+  grossEarningsEl.textContent = '–';
+  hourlyRateEl.textContent = '–';
+  
+  // Clear breaks UI
+  breaksContainer.innerHTML = '';
+  
+  // Update submit button text
+  const submitBtn = form.querySelector('button.submit');
+  submitBtn.textContent = 'Add Shift';
+  
+  // Remove delete button
+  const deleteBtn = form.querySelector('.delete-edit-btn');
+  if (deleteBtn) {
+    deleteBtn.remove();
   }
 }
 
@@ -271,11 +472,11 @@ function addBreakRow(startValue = '', endValue = '') {
   const div = document.createElement('div');
   div.classList.add('break-entry');
   const startInput = document.createElement('input');
-  startInput.type = 'time';
+  startInput.type = 'text';
   startInput.classList.add('break-start');
   startInput.value = startValue;
   const endInput = document.createElement('input');
-  endInput.type = 'time';
+  endInput.type = 'text';
   endInput.classList.add('break-end');
   endInput.value = endValue;
   const removeBtn = document.createElement('button');
@@ -288,8 +489,18 @@ function addBreakRow(startValue = '', endValue = '') {
     recalculate();
   });
   // Recalculate durations when break times change
-  startInput.addEventListener('change', recalculate);
-  endInput.addEventListener('change', recalculate);
+  startInput.addEventListener('input', recalculate);
+  endInput.addEventListener('input', recalculate);
+  
+  // Add time formatting and validation for break inputs
+  startInput.addEventListener('blur', () => {
+    formatTimeInput(startInput);
+    validateTimeInput(startInput);
+  });
+  endInput.addEventListener('blur', () => {
+    formatTimeInput(endInput);
+    validateTimeInput(endInput);
+  });
   div.appendChild(startInput);
   div.appendChild(endInput);
   div.appendChild(removeBtn);
@@ -297,8 +508,16 @@ function addBreakRow(startValue = '', endValue = '') {
 }
 
 // Attach event listeners to form fields for live calculation
-[startTimeInput, endTimeInput, netEarningsInput, milesStartInput, milesEndInput, gallonsUsedInput, dollarsPerGalInput].forEach(el => {
+[startTimeInput, endTimeInput, netEarningsInput, milesStartInput, milesEndInput, gallonsUsedInput].forEach(el => {
   el.addEventListener('input', recalculate);
+});
+
+// Add time validation and formatting for start and end time inputs
+[startTimeInput, endTimeInput].forEach(input => {
+  input.addEventListener('blur', () => {
+    formatTimeInput(input);
+    validateTimeInput(input);
+  });
 });
 
 // Format odometer inputs with commas on blur
@@ -320,6 +539,25 @@ addBreakBtn.addEventListener('click', () => {
 // Form submission handler
 form.addEventListener('submit', event => {
   event.preventDefault();
+  
+  // Prevent submission if we're still setting up edit mode
+  if (isSettingUpEdit) {
+    console.log('Form submission blocked - still setting up edit mode');
+    return;
+  }
+  
+  // Validate time inputs before submission
+  if (!validateTimeInput(startTimeInput) || !validateTimeInput(endTimeInput)) {
+    alert('Please enter valid start and end times in the format "8:31 PM" or "12:08 AM"');
+    return;
+  }
+  
+  // Check if we're in edit mode
+  const isEditMode = editingIndex >= 0;
+  const editIndex = editingIndex;
+  
+  console.log('Form submission - Edit mode:', isEditMode, 'Edit index:', editIndex);
+  
   // Parse inputs
   const date = dateInput.value;
   const start = startTimeInput.value;
@@ -328,10 +566,10 @@ form.addEventListener('submit', event => {
   const grossPay = parseFloat(netEarningsInput.value) || 0;
   const milesStart = parseCommaNumber(milesStartInput.value) || 0;
   const milesEnd = parseCommaNumber(milesEndInput.value) || 0;
-  const milesDriven = parseFloat(milesDrivenEl.value) || 0;
-  const gallons = parseFloat(gallonsUsedInput.value) || 0;
-  const pricePerGal = parseFloat(dollarsPerGalInput.value) || 0;
-  const gasCost = parseFloat(gasCostEl.value) || 0;
+  const milesDriven = parseFloat(milesDrivenEl.textContent) || 0;
+  const gallons = parseFloat(gallonsUsedInput.textContent) || 0;
+  const pricePerGal = parseFloat(dollarsPerGalInput.textContent.replace('$', '')) || 0;
+  const gasCost = parseFloat(gasCostEl.textContent.replace('$', '')) || 0;
   // Net profit after subtracting gas cost
   const netProfit = grossPay - gasCost;
   const shiftMinutes = calculateTimeDifferenceMinutes(start, end);
@@ -368,7 +606,17 @@ form.addEventListener('submit', event => {
     hourly,
     breaks
   };
-  entries.push(entry);
+  
+  if (isEditMode && editIndex >= 0) {
+    // Update existing entry
+    entries[editIndex] = entry;
+    console.log('Updated existing entry at index:', editIndex);
+  } else {
+    // Add new entry
+    entries.push(entry);
+    console.log('Added new entry');
+  }
+  
   // Save to IndexedDB and update UI
   saveEntries().then(() => {
     renderEntries();
@@ -379,16 +627,9 @@ form.addEventListener('submit', event => {
     renderEntries();
     updateSummaries();
   });
-  // Reset form and computed fields
-  form.reset();
-  shiftDurationEl.value = '';
-  workingDurationEl.value = '';
-  milesDrivenEl.value = '';
-  gasCostEl.value = '';
-  grossEarningsEl.value = '';
-  hourlyRateEl.value = '';
-  // Clear breaks UI
-  breaksContainer.innerHTML = '';
+  
+  // Reset form to add mode
+  resetForm();
 });
 
 /**
@@ -405,14 +646,10 @@ function renderEntries() {
   thead.innerHTML = `
     <tr>
       <th>Date</th>
-      <th>Start</th>
-      <th>End</th>
-      <th>Breaks</th>
-      <th>Working (hrs)</th>
-      <th>Gross pay ($)</th>
-      <th>Net profit ($)</th>
-      <th>Hourly (net)</th>
-      <th>Miles driven</th>
+      <th>Hours</th>
+      <th>Gross</th>
+      <th>Net</th>
+      <th>Hourly</th>
       <th></th>
     </tr>
   `;
@@ -421,53 +658,52 @@ function renderEntries() {
     const tr = document.createElement('tr');
     const workingHours = (entry.workingMinutes / 60).toFixed(2);
     tr.innerHTML = `
-      <td>${entry.date}</td>
-      <td>${entry.start}</td>
-      <td>${entry.end}</td>
-      <td>${entry.breaks.length} (${formatMinutes(entry.breakMinutes)})</td>
+      <td>${formatDate(entry.date)}</td>
       <td>${workingHours}</td>
-      <td>${entry.gross.toFixed(2)}</td>
-      <td>${entry.net.toFixed(2)}</td>
-      <td>${entry.hourly.toFixed(2)}</td>
-      <td>${entry.milesDriven.toFixed(2)}</td>
-      <td><button class="delete-btn" data-index="${index}">Delete</button></td>
+      <td>$${entry.gross.toFixed(2)}</td>
+      <td>$${entry.net.toFixed(2)}</td>
+      <td>$${entry.hourly.toFixed(2)}</td>
+      <td><button class="edit-btn" data-index="${index}">Edit</button></td>
     `;
     tbody.appendChild(tr);
   });
   table.appendChild(thead);
   table.appendChild(tbody);
   entriesContainer.appendChild(table);
-  // Attach delete handlers
-  const deleteButtons = entriesContainer.querySelectorAll('.delete-btn');
-  deleteButtons.forEach(btn => {
+  // Attach edit handlers
+  const editButtons = entriesContainer.querySelectorAll('.edit-btn');
+  editButtons.forEach(btn => {
     btn.addEventListener('click', evt => {
       const idx = parseInt(evt.target.dataset.index, 10);
-      entries.splice(idx, 1);
-      // Save to IndexedDB and update UI
-      saveEntries().then(() => {
-        renderEntries();
-        updateSummaries();
-      }).catch(err => {
-        console.error('Failed to delete entry:', err);
-        // Still update UI even if save fails
-        renderEntries();
-        updateSummaries();
-      });
+      editEntry(idx);
     });
   });
 }
 
 /**
- * Calculate ISO week number for a given date. Monday is considered the first day of the week.
+ * Format date from ISO string to M/D/YY format
+ * @param {string} dateString - ISO date string (e.g., "2025-08-25")
+ * @returns {string} - Formatted date (e.g., "8/25/25")
+ */
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const month = date.getMonth() + 1; // getMonth() returns 0-11
+  const day = date.getDate();
+  const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
+  return `${month}/${day}/${year}`;
+}
+
+/**
+ * Calculate week number for a given date. Sunday is considered the first day of the week.
  * @param {Date} dt
  * @returns {number}
  */
 function getWeekNumber(dt) {
-  const date = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
-  // Set to nearest Thursday: current date + 4 - current day number
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const date = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  // Set to nearest Saturday: current date + 6 - current day number
+  const dayNum = date.getDay();
+  date.setDate(date.getDate() + 6 - dayNum);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
   const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
   return weekNo;
 }
@@ -482,6 +718,7 @@ function updateSummaries() {
     avgHourlySummaryEl.textContent = '–';
     return;
   }
+  
   const now = new Date();
   const currentWeek = getWeekNumber(now);
   const currentYear = now.getFullYear();
@@ -491,6 +728,7 @@ function updateSummaries() {
   let totalNet = 0;
   let totalGross = 0;
   let totalMinutes = 0;
+  
   entries.forEach(entry => {
     totalNet += entry.net;
     totalGross += entry.gross;
@@ -505,15 +743,26 @@ function updateSummaries() {
       weekMinutes += entry.workingMinutes;
     }
   });
-  weekSummaryEl.textContent = `${weekNet.toFixed(2)} / ${weekGross.toFixed(2)}`;
-  overallSummaryEl.textContent = `${totalNet.toFixed(2)} / ${totalGross.toFixed(2)}`;
-  // Average hourly: use total working time
-  if (totalMinutes > 0) {
-    const netHourly = totalNet / (totalMinutes / 60);
-    const grossHourly = totalGross / (totalMinutes / 60);
-    avgHourlySummaryEl.textContent = `${netHourly.toFixed(2)} / ${grossHourly.toFixed(2)}`;
+  
+  // Update UI based on toggle state
+  if (showGrossValues) {
+    weekSummaryEl.textContent = `$${weekGross.toFixed(2)}`;
+    overallSummaryEl.textContent = `$${totalGross.toFixed(2)}`;
+    if (totalMinutes > 0) {
+      const grossHourly = totalGross / (totalMinutes / 60);
+      avgHourlySummaryEl.textContent = `$${grossHourly.toFixed(2)}`;
+    } else {
+      avgHourlySummaryEl.textContent = '–';
+    }
   } else {
-    avgHourlySummaryEl.textContent = '–';
+    weekSummaryEl.textContent = `$${weekNet.toFixed(2)}`;
+    overallSummaryEl.textContent = `$${totalNet.toFixed(2)}`;
+    if (totalMinutes > 0) {
+      const netHourly = totalNet / (totalMinutes / 60);
+      avgHourlySummaryEl.textContent = `$${netHourly.toFixed(2)}`;
+    } else {
+      avgHourlySummaryEl.textContent = '–';
+    }
   }
 }
 
@@ -594,6 +843,9 @@ function updateStorageStatus() {
     storageStatusSection.style.display = 'block';
   }
 }
+
+// Global variable to track summary display mode
+let showGrossValues = false;
 
 // Initialize admin menu functionality
 function initAdminMenu() {
@@ -823,10 +1075,8 @@ async function loadEntries() {
   
   renderEntries();
   updateSummaries();
-  // Set default gas price on load if input is empty
-  if (!dollarsPerGalInput.value) {
-    dollarsPerGalInput.value = DEFAULT_GAS_PRICE.toFixed(3);
-  }
+  // Set default gas price on load
+  dollarsPerGalInput.textContent = '$' + DEFAULT_GAS_PRICE.toFixed(2);
   recalculate();
 }
 
@@ -843,6 +1093,15 @@ if ('serviceWorker' in navigator) {
 loadEntries().then(() => {
   // Initialize admin menu after data is loaded
   initAdminMenu();
+  
+  // Initialize summary toggle
+  const summaryToggle = document.getElementById('summaryToggle');
+  if (summaryToggle) {
+    summaryToggle.addEventListener('change', (event) => {
+      showGrossValues = event.target.checked;
+      updateSummaries();
+    });
+  }
 }).catch(err => {
   console.error('Failed to initialize app:', err);
   // Still initialize admin menu even if loading fails

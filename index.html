@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>DashTrack</title>
   <!-- Theme and background colours defined in the manifest are echoed here to avoid a flash of white on load. MDN recommends matching the manifest background colour with your CSS background to create a smooth transition【506307192154816†L196-L203】. -->
   <meta name="theme-color" content="#000000" />
@@ -49,86 +49,102 @@
   <main>
     <!-- Shift entry form -->
     <form id="shiftForm" class="form">
-      <!-- Group: Shift timing -->
+      <!-- Group: Shift Details -->
       <div class="group">
-        <h3>Shift timing</h3>
+        <h3>Shift Details</h3>
         <div class="form-grid">
           <div class="form-group">
             <label for="date">Date</label>
             <input type="date" id="date" required />
           </div>
-          <div class="form-group">
-            <label for="startTime">Start time</label>
-            <input type="time" id="startTime" required />
+          <div class="time-fields-container">
+            <div class="form-group time-group">
+              <label for="startTime">Start time</label>
+              <input type="text" id="startTime" required />
+            </div>
+            <div class="form-group time-group">
+              <label for="endTime">End time</label>
+              <input type="text" id="endTime" required />
+            </div>
           </div>
-          <div class="form-group">
-            <label for="endTime">End time</label>
-            <input type="time" id="endTime" required />
-          </div>
-          <div class="form-group">
-            <label>Shift duration</label>
-            <input type="text" id="shiftDuration" disabled />
-          </div>
-          <div class="form-group">
-            <label>Working duration</label>
-            <input type="text" id="workingDuration" disabled />
-          </div>
-        </div>
-      </div>
-      <!-- Group: Odometer -->
-      <div class="group">
-        <h3>Odometer</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="milesStart">Start (mi)</label>
-            <input type="text" id="milesStart" inputmode="decimal" placeholder="0" required />
-          </div>
-          <div class="form-group">
-            <label for="milesEnd">End (mi)</label>
-            <input type="text" id="milesEnd" inputmode="decimal" placeholder="0" required />
-          </div>
-          <div class="form-group">
-            <label>Miles driven</label>
-            <input type="text" id="milesDriven" disabled />
-          </div>
-        </div>
-      </div>
-      <!-- Group: Earnings & Fuel -->
-      <div class="group">
-        <h3>Earnings &amp; fuel</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="netEarnings">Gross pay ($)</label>
-            <input type="number" id="netEarnings" step="0.01" min="0" placeholder="0.00" required />
-          </div>
-          <div class="form-group">
-            <label for="gallonsUsed">Gallons used (auto)</label>
-            <input type="text" id="gallonsUsed" disabled />
-          </div>
-          <div class="form-group">
-            <label for="dollarsPerGal">$/gal (auto)</label>
-            <input type="text" id="dollarsPerGal" disabled />
-          </div>
-          <div class="form-group">
-            <label>Gas cost ($)</label>
-            <input type="text" id="gasCost" disabled />
-          </div>
-          <div class="form-group">
-            <label>Net earnings ($)</label>
-            <input type="text" id="grossEarnings" disabled />
-          </div>
-          <div class="form-group">
-            <label>Hourly earnings ($/hr)</label>
-            <input type="text" id="hourlyRate" disabled />
+          <div class="duration-display">
+            <div class="duration-item">
+              <span class="duration-label">Shift duration:</span>
+              <span class="duration-value" id="shiftDuration">–</span>
+            </div>
+            <div class="duration-item">
+              <span class="duration-label">Working duration:</span>
+              <span class="duration-value" id="workingDuration">–</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Breaks section -->
-      <div id="breaksSection" class="breaks-section">
-        <h2>Breaks (optional)</h2>
+      <div class="group">
+        <h3>Breaks (optional)</h3>
         <div id="breaksContainer"></div>
         <button type="button" id="addBreakBtn" class="add-break">+ Add Break</button>
+      </div>
+
+      <!-- Group: Odometer -->
+      <div class="group">
+        <h3>Odometer</h3>
+        <div class="form-grid">
+          <div class="miles-fields-container">
+            <div class="form-group miles-group">
+              <label for="milesStart">Start (mi)</label>
+              <input type="text" id="milesStart" inputmode="decimal" placeholder="0" required />
+            </div>
+            <div class="form-group miles-group">
+              <label for="milesEnd">End (mi)</label>
+              <input type="text" id="milesEnd" inputmode="decimal" placeholder="0" required />
+            </div>
+          </div>
+          <div class="miles-display">
+            <div class="miles-item">
+              <span class="miles-label">Miles driven:</span>
+              <span class="miles-value" id="milesDriven">–</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Group: Earnings &amp; fuel -->
+      <div class="group">
+        <h3>Earnings</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="netEarnings">Gross pay</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix">$</span>
+              <input type="number" id="netEarnings" step="0.01" min="0" inputmode="decimal" required />
+            </div>
+          </div>
+          <div class="fuel-display">
+            <div class="fuel-item">
+              <span class="fuel-label">Gallons used:</span>
+              <span class="fuel-value" id="gallonsUsed">–</span>
+            </div>
+            <div class="fuel-item">
+              <span class="fuel-label">$/gal:</span>
+              <span class="fuel-value" id="dollarsPerGal">–</span>
+            </div>
+            <div class="fuel-item">
+              <span class="fuel-label">Gas cost:</span>
+              <span class="fuel-value" id="gasCost">–</span>
+            </div>
+          </div>
+          <div class="earnings-display">
+            <div class="earnings-item">
+              <span class="earnings-label">Net earnings:</span>
+              <span class="earnings-value" id="grossEarnings">–</span>
+            </div>
+            <div class="earnings-item">
+              <span class="earnings-label">Hourly earnings:</span>
+              <span class="earnings-value" id="hourlyRate">–</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="actions">
@@ -137,29 +153,41 @@
     </form>
 
     <!-- Summary section -->
-    <section id="summary" class="summary">
-      <h2>Summary</h2>
-      <div class="summary-grid">
-        <div>
-          <strong>This week (net profit / gross pay):</strong>
-          <span id="weekSummary"></span>
+    <div class="summary-container">
+      <div class="group">
+        <h3>Summary</h3>
+        <div class="summary-toggle">
+          <span>Net</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="summaryToggle">
+            <span class="slider"></span>
+          </label>
+          <span>Gross</span>
         </div>
-        <div>
-          <strong>Overall (net profit / gross pay):</strong>
-          <span id="overallSummary"></span>
-        </div>
-        <div>
-          <strong>Average hourly (net / gross):</strong>
-          <span id="avgHourlySummary"></span>
+        <div class="summary-grid">
+          <div>
+            <strong>This week:</strong>
+            <span id="weekSummary"></span>
+          </div>
+          <div>
+            <strong>Overall:</strong>
+            <span id="overallSummary"></span>
+          </div>
+          <div>
+            <strong>Average hourly:</strong>
+            <span id="avgHourlySummary"></span>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
 
     <!-- Entries list -->
-    <section id="entriesSection" class="entries-section">
-      <h2>Recorded Shifts</h2>
-      <div id="entriesContainer" class="entries-container"></div>
-    </section>
+    <div class="entries-container-wrapper">
+      <div class="group">
+        <h3>Recorded Shifts (remove me)</h3>
+        <div id="entriesContainer" class="entries-container"></div>
+      </div>
+    </div>
   </main>
   <script src="app.js"></script>
 </body>

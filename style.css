@@ -24,12 +24,16 @@ body {
 }
 
 header.header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background-color: var(--bg);
-  border-bottom: 1px solid var(--surface-alt);
+  backdrop-filter: blur(10px);
+  background-color: rgba(0, 0, 0, 0.95);
 }
 
 header.header h1 {
@@ -83,6 +87,179 @@ main {
   flex-direction: column;
 }
 
+/* Time fields container - makes start and end time side by side */
+.time-fields-container {
+  display: flex;
+  gap: 1rem;
+  grid-column: 1 / -1;
+}
+
+.time-fields-container .form-group {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Miles fields container - makes start and end miles side by side */
+.miles-fields-container {
+  display: flex;
+  gap: 1rem;
+  grid-column: 1 / -1;
+}
+
+.miles-fields-container .form-group {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Duration display - clean display fields instead of inputs */
+.duration-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
+  border: 1px solid var(--surface-alt);
+  text-align: left;
+}
+
+/* Miles display - clean display field instead of input */
+.miles-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
+  border: 1px solid var(--surface-alt);
+  text-align: left;
+}
+
+/* Fuel display - clean display fields instead of inputs */
+.fuel-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
+  border: 1px solid var(--surface-alt);
+  text-align: left;
+}
+
+/* Earnings display - clean display fields instead of inputs */
+.earnings-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
+  border: 1px solid var(--surface-alt);
+  text-align: left;
+}
+
+.duration-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.duration-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.duration-value {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Miles item styling to match duration items */
+.miles-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.miles-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.miles-value {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Fuel item styling to match duration items */
+.fuel-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.fuel-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.fuel-value {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Earnings item styling to match duration items */
+.earnings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.earnings-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.earnings-value {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Time fields layout - make them side by side on same row */
+.time-group {
+  grid-column: span 1;
+}
+
+/* Ensure date field is left-aligned */
+.form-group input[type="date"] {
+  text-align: left;
+}
+
 .form-group label {
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
@@ -96,6 +273,11 @@ main {
   padding: 0.5rem;
   border-radius: 4px;
   font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .form-group input:disabled {
@@ -123,55 +305,76 @@ main {
   opacity: 0.9;
 }
 
-/* Breaks section styling */
-.breaks-section {
-  margin-top: 1.5rem;
-  background-color: var(--surface);
-  padding: 0.75rem;
-  border-radius: 4px;
+/* Prevent zoom on input focus for mobile devices */
+input[type="text"], input[type="number"] {
+  font-size: 16px;
 }
 
-.breaks-section h2 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-  color: var(--text);
+/* Input with prefix styling */
+.input-with-prefix {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-#breaksContainer .break-entry {
+.input-prefix {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  z-index: 1;
+}
+
+.input-with-prefix input {
+  padding-left: 1.5rem;
+}
+
+.break-entry {
   display: flex;
   gap: 0.5rem;
   align-items: center;
   margin-bottom: 0.5rem;
 }
 
-#breaksContainer .break-entry input {
-  flex: 1;
-  background-color: var(--surface-alt);
+.break-entry input {
+  background-color: var(--surface);
   border: 1px solid var(--surface-alt);
   color: var(--text);
   padding: 0.5rem;
   border-radius: 4px;
+  font-size: 0.9rem;
+  width: 120px;
 }
 
-#breaksContainer .break-entry button.remove-break {
+.break-entry input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.remove-break {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 1.2rem;
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
+  font-size: 1.2rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.remove-break:hover {
+  background-color: var(--surface-alt);
 }
 
 .add-break {
-  display: inline-block;
-  margin-top: 0.5rem;
   background-color: var(--surface-alt);
   border: 1px solid var(--accent);
   color: var(--accent);
   padding: 0.5rem 1rem;
-  font-size: 0.9rem;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .add-break:hover {
@@ -179,13 +382,14 @@ main {
   color: var(--bg);
 }
 
-/* Summary styling */
-.summary {
+/* Summary container - matches form and entries width */
+.summary-container {
   max-width: 900px;
   margin: 0 auto;
   padding: 1rem;
 }
 
+/* Summary grid styling */
 .summary-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -194,13 +398,14 @@ main {
 
 /* Style summary cards with larger text for emphasis */
 .summary-grid div {
-  background-color: var(--surface);
+  background-color: var(--surface-alt);
   padding: 0.75rem;
   border-radius: 4px;
   font-size: 1.1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border: 1px solid var(--surface-alt);
 }
 
 .summary-grid strong {
@@ -213,15 +418,80 @@ main {
   color: var(--accent);
 }
 
-/* Entries section */
-.entries-section {
+/* Summary toggle styling */
+.summary-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--surface-alt);
+}
+
+.summary-toggle span {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--surface-alt);
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--bg);
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .slider {
+  background-color: var(--accent);
+}
+
+.toggle-switch input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Entries container wrapper - matches form and summary width */
+.entries-container-wrapper {
   max-width: 900px;
   margin: 0 auto;
   padding: 1rem;
 }
 
-.entries-section h2 {
-  margin-bottom: 0.5rem;
+/* Entries container styling */
+.entries-container {
+  margin-top: 0.5rem;
 }
 
 .export-actions {
@@ -283,6 +553,34 @@ main {
   text-decoration: underline;
 }
 
+/* Edit button styling */
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.edit-btn:hover {
+  text-decoration: underline;
+}
+
+/* Delete button styling (for edit mode) */
+.delete-edit-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.delete-edit-btn:hover {
+  background-color: #c82333;
+}
+
 /* Admin Menu Styles */
 .admin-menu {
   position: relative;
@@ -337,7 +635,7 @@ main {
   border: 1px solid var(--surface-alt);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  z-index: 1000;
+  z-index: 1001;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-10px);
