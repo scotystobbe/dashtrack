@@ -649,7 +649,6 @@ form.addEventListener('submit', event => {
 
 /**
  * Render entries into the entries container as a table.
- * comment
  */
 function renderEntries() {
   entriesContainer.innerHTML = '';
