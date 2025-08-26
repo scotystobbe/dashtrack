@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DashTrack</title>
+  <!-- Theme and background colours defined in the manifest are echoed here to avoid a flash of white on load. MDN recommends matching the manifest background colour with your CSS background to create a smooth transition【506307192154816†L196-L203】. -->
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png" />
+  <link rel="apple-touch-icon" href="icons/logo-512.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="header">
+    <img src="icons/logo-192.png" alt="DashTrack logo" class="logo" />
+    <h1>DashTrack</h1>
+  </header>
+  <main>
+    <!-- Shift entry form -->
+    <form id="shiftForm" class="form">
+      <!-- Group: Shift timing -->
+      <div class="group">
+        <h3>Shift timing</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="date" id="date" required />
+          </div>
+          <div class="form-group">
+            <label for="startTime">Start time</label>
+            <input type="time" id="startTime" required />
+          </div>
+          <div class="form-group">
+            <label for="endTime">End time</label>
+            <input type="time" id="endTime" required />
+          </div>
+          <div class="form-group">
+            <label>Shift duration</label>
+            <input type="text" id="shiftDuration" disabled />
+          </div>
+          <div class="form-group">
+            <label>Working duration</label>
+            <input type="text" id="workingDuration" disabled />
+          </div>
+        </div>
+      </div>
+      <!-- Group: Odometer -->
+      <div class="group">
+        <h3>Odometer</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="milesStart">Start (mi)</label>
+            <input type="text" id="milesStart" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="form-group">
+            <label for="milesEnd">End (mi)</label>
+            <input type="text" id="milesEnd" inputmode="decimal" placeholder="0" required />
+          </div>
+          <div class="form-group">
+            <label>Miles driven</label>
+            <input type="text" id="milesDriven" disabled />
+          </div>
+        </div>
+      </div>
+      <!-- Group: Earnings & Fuel -->
+      <div class="group">
+        <h3>Earnings &amp; fuel</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="netEarnings">Gross pay ($)</label>
+            <input type="number" id="netEarnings" step="0.01" min="0" placeholder="0.00" required />
+          </div>
+          <div class="form-group">
+            <label for="gallonsUsed">Gallons used (auto)</label>
+            <input type="text" id="gallonsUsed" disabled />
+          </div>
+          <div class="form-group">
+            <label for="dollarsPerGal">$/gal (auto)</label>
+            <input type="text" id="dollarsPerGal" disabled />
+          </div>
+          <div class="form-group">
+            <label>Gas cost ($)</label>
+            <input type="text" id="gasCost" disabled />
+          </div>
+          <div class="form-group">
+            <label>Net earnings ($)</label>
+            <input type="text" id="grossEarnings" disabled />
+          </div>
+          <div class="form-group">
+            <label>Hourly earnings ($/hr)</label>
+            <input type="text" id="hourlyRate" disabled />
+          </div>
+        </div>
+      </div>
+
+      <!-- Breaks section -->
+      <div id="breaksSection" class="breaks-section">
+        <h2>Breaks (optional)</h2>
+        <div id="breaksContainer"></div>
+        <button type="button" id="addBreakBtn" class="add-break">+ Add Break</button>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="submit">Add Shift</button>
+      </div>
+    </form>
+
+    <!-- Summary section -->
+    <section id="summary" class="summary">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div>
+          <strong>This week (net profit / gross pay):</strong>
+          <span id="weekSummary"></span>
+        </div>
+        <div>
+          <strong>Overall (net profit / gross pay):</strong>
+          <span id="overallSummary"></span>
+        </div>
+        <div>
+          <strong>Average hourly (net / gross):</strong>
+          <span id="avgHourlySummary"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Entries list -->
+    <section id="entriesSection" class="entries-section">
+      <h2>Recorded Shifts</h2>
+      <div class="export-actions">
+        <button id="exportCsvBtn" type="button">Export CSV</button>
+      </div>
+      <div id="entriesContainer" class="entries-container"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
