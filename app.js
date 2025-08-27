@@ -13,8 +13,16 @@ import { supabase, SHIFTS_TABLE } from './supabase.js';
 
 // Debug logging
 console.log('App.js loaded, checking environment variables...');
-console.log('SUPABASE_URL available:', !!import.meta.env.SUPABASE_URL);
-console.log('SUPABASE_ANON_KEY available:', !!import.meta.env.SUPABASE_ANON_KEY);
+try {
+  if (import.meta && import.meta.env) {
+    console.log('SUPABASE_URL available:', !!import.meta.env.SUPABASE_URL);
+    console.log('SUPABASE_ANON_KEY available:', !!import.meta.env.SUPABASE_ANON_KEY);
+  } else {
+    console.log('import.meta.env not available - running in browser environment');
+  }
+} catch (error) {
+  console.log('import.meta not available - running in browser environment');
+}
 
 // DOM elements
 const form = document.getElementById('shiftForm');
