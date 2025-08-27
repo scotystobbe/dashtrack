@@ -1,0 +1,6 @@
+// DashTrack Configuration
+// Update these values with your actual Supabase credentials
+window.DASHTRACK_CONFIG = {
+  SUPABASE_URL: 'https://nehlxpfxfjbkbflbewpl.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5laGx4cGZ4Zmpia2JmbGJld3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyNDc3NDQsImV4cCI6MjA3MTgyMzc0NH0.kDrlQhb-q_TJ-aQvB01AxMV6vrnQFBsCGltaVQL1x5I'
+};

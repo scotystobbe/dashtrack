@@ -7,24 +7,19 @@ let SHIFTS_TABLE = 'shifts';
 try {
   // Check if Supabase CDN is loaded and createClient is available
   if (window.supabase && window.supabase.createClient) {
-    // Check if environment variables are available
-    try {
-      if (import.meta && import.meta.env) {
-        const supabaseUrl = import.meta.env.SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
-        
-        if (supabaseUrl && supabaseAnonKey) {
-          // Create Supabase client with environment variables
-          supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-          console.log('Supabase client created successfully');
-        } else {
-          throw new Error('Supabase environment variables not available');
-        }
-      } else {
-        throw new Error('import.meta.env not available');
-      }
-    } catch (envError) {
-      throw new Error('Environment variables not accessible');
+    // Try to get environment variables from Vercel's public env vars
+    // These need to be prefixed with NEXT_PUBLIC_ or VITE_ to be available in browser
+    // Try to get from config file first
+    const config = window.DASHTRACK_CONFIG || {};
+    const supabaseUrl = config.SUPABASE_URL;
+    const supabaseAnonKey = config.SUPABASE_ANON_KEY;
+    
+    if (supabaseUrl && supabaseAnonKey) {
+      // Create Supabase client with environment variables
+      supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+      console.log('Supabase client created successfully');
+    } else {
+      throw new Error('Supabase environment variables not available');
     }
   } else {
     throw new Error('Supabase CDN not loaded');
