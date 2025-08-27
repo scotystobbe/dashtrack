@@ -103,11 +103,104 @@ async function initSupabase() {
 }
 
 /**
- * Save entries to Supabase
+ * Save a single entry to Supabase
  */
-async function saveEntries() {
+async function saveEntry(entry, isUpdate = false) {
   try {
-    // Clear existing data first
+    if (isUpdate && entry.id) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from(SHIFTS_TABLE_NAME)
+        .update(entry)
+        .eq('id', entry.id);
+      
+      if (error) {
+        console.error('Error updating entry:', error);
+        throw error;
+      }
+      
+      console.log('Entry updated in Supabase:', data);
+    } else {
+      // Insert new record
+      const { data, error } = await supabase
+        .from(SHIFTS_TABLE_NAME)
+        .insert([entry])
+        .select(); // Return the inserted data with ID
+      
+      if (error) {
+        console.error('Error saving entry:', error);
+        throw error;
+      }
+      
+      // Update the local entry with the database ID
+      if (data && data.length > 0) {
+        const savedEntry = data[0];
+        Object.assign(entry, savedEntry);
+        console.log('Entry saved to Supabase:', savedEntry);
+      }
+    }
+    
+    // Also save to localStorage as backup
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      console.warn('Failed to save to localStorage backup:', localStorageErr);
+    }
+    
+  } catch (err) {
+    console.error('Failed to save to Supabase, falling back to localStorage:', err);
+    // Fallback to localStorage
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      throw new Error('All storage methods failed');
+    }
+  }
+}
+
+/**
+ * Delete a single entry from Supabase
+ */
+async function deleteEntry(entry) {
+  try {
+    if (entry.id) {
+      const { error } = await supabase
+        .from(SHIFTS_TABLE_NAME)
+        .delete()
+        .eq('id', entry.id);
+      
+      if (error) {
+        console.error('Error deleting entry:', error);
+        throw error;
+      }
+      
+      console.log('Entry deleted from Supabase');
+    }
+    
+    // Also update localStorage backup
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      console.warn('Failed to update localStorage backup:', localStorageErr);
+    }
+    
+  } catch (err) {
+    console.error('Failed to delete from Supabase:', err);
+    // Still update localStorage
+    try {
+      localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
+    } catch (localStorageErr) {
+      console.warn('Failed to update localStorage backup:', localStorageErr);
+    }
+  }
+}
+
+/**
+ * Save all entries to Supabase (used for initial migration/import)
+ */
+async function saveAllEntries() {
+  try {
+    // Clear existing data first (only for full migrations)
     const { error: deleteError } = await supabase
       .from(SHIFTS_TABLE_NAME)
       .delete()
@@ -122,14 +215,19 @@ async function saveEntries() {
     if (entries.length > 0) {
       const { data, error } = await supabase
         .from(SHIFTS_TABLE_NAME)
-        .insert(entries);
+        .insert(entries)
+        .select(); // Return the inserted data with IDs
       
       if (error) {
         console.error('Error saving entries:', error);
         throw error;
       }
       
-      console.log('Entries saved to Supabase:', data);
+      // Update local entries with database IDs
+      if (data && data.length > 0) {
+        entries = data;
+        console.log('All entries saved to Supabase:', data.length);
+      }
     }
     
     // Also save to localStorage as backup
@@ -140,12 +238,11 @@ async function saveEntries() {
     }
     
   } catch (err) {
-    console.error('Failed to save to IndexedDB, falling back to localStorage:', err);
+    console.error('Failed to save to Supabase, falling back to localStorage:', err);
     // Fallback to localStorage
     try {
       localStorage.setItem('dashtrack_entries', JSON.stringify(entries));
     } catch (localStorageErr) {
-      console.error('Failed to save to localStorage fallback:', localStorageErr);
       throw new Error('All storage methods failed');
     }
   }
@@ -459,8 +556,9 @@ function editEntry(index) {
     deleteBtn.style.marginLeft = '10px';
     deleteBtn.addEventListener('click', () => {
       if (confirm('Are you sure you want to delete this shift?')) {
+        const entryToDelete = entries[index];
         entries.splice(index, 1);
-        saveEntries().then(() => {
+        deleteEntry(entryToDelete).then(() => {
           renderEntries();
           updateSummaries();
           resetForm();
@@ -566,7 +664,7 @@ function addBreakRow(startValue = '', endValue = '') {
 console.log('Setting up form event listeners...');
 [startTimeInput, endTimeInput, netEarningsInput, milesStartInput, milesEndInput, gallonsUsedInput].forEach(el => {
   if (el) {
-    el.addEventListener('input', recalculate);
+  el.addEventListener('input', recalculate);
     console.log('Added input listener to:', el.id);
   } else {
     console.warn('Element not found for input listener');
@@ -587,23 +685,23 @@ console.log('Setting up form event listeners...');
 // Format odometer inputs with commas on blur
 [milesStartInput, milesEndInput].forEach(input => {
   if (input) {
-    input.addEventListener('blur', () => {
-      const value = parseCommaNumber(input.value);
-      if (!isNaN(value)) {
-        input.value = formatWithCommas(value);
-      }
-      recalculate();
-    });
+  input.addEventListener('blur', () => {
+    const value = parseCommaNumber(input.value);
+    if (!isNaN(value)) {
+      input.value = formatWithCommas(value);
+    }
+    recalculate();
+  });
     console.log('Added odometer blur listener to:', input.id);
   }
 });
 
 // Add break button handler
 if (addBreakBtn) {
-  addBreakBtn.addEventListener('click', () => {
+addBreakBtn.addEventListener('click', () => {
     console.log('Add break button clicked!');
-    addBreakRow();
-  });
+  addBreakRow();
+});
   console.log('Added click listener to add break button');
 } else {
   console.error('Add break button not found!');
@@ -611,9 +709,9 @@ if (addBreakBtn) {
 
 // Form submission handler
 if (form) {
-  form.addEventListener('submit', event => {
+form.addEventListener('submit', event => {
     console.log('Form submission event triggered');
-    event.preventDefault();
+  event.preventDefault();
     
     // Prevent submission if we're still setting up edit mode
     if (isSettingUpEdit) {
@@ -684,24 +782,37 @@ if (form) {
   
   if (isEditMode && editIndex >= 0) {
     // Update existing entry
+    const existingEntry = entries[editIndex];
+    entry.id = existingEntry.id; // Preserve the database ID
     entries[editIndex] = entry;
     console.log('Updated existing entry at index:', editIndex);
+    
+    // Save individual entry update
+    saveEntry(entry, true).then(() => {
+      renderEntries();
+      updateSummaries();
+    }).catch(err => {
+      console.error('Failed to update entry:', err);
+      // Still update UI even if save fails
+      renderEntries();
+      updateSummaries();
+    });
   } else {
     // Add new entry
     entries.push(entry);
     console.log('Added new entry');
+    
+    // Save individual new entry
+    saveEntry(entry, false).then(() => {
+      renderEntries();
+      updateSummaries();
+    }).catch(err => {
+      console.error('Failed to save entry:', err);
+      // Still update UI even if save fails
+      renderEntries();
+      updateSummaries();
+    });
   }
-  
-  // Save to IndexedDB and update UI
-  saveEntries().then(() => {
-    renderEntries();
-    updateSummaries();
-  }).catch(err => {
-    console.error('Failed to save entry:', err);
-    // Still update UI even if save fails
-    renderEntries();
-    updateSummaries();
-  });
   
   // Reset form and exit edit mode
   resetForm();
@@ -826,11 +937,11 @@ function updateSummaries() {
   if (showGrossValues) {
     weekSummaryEl.textContent = `$${weekGross.toFixed(2)}`;
     overallSummaryEl.textContent = `$${totalGross.toFixed(2)}`;
-    if (totalMinutes > 0) {
-      const grossHourly = totalGross / (totalMinutes / 60);
+  if (totalMinutes > 0) {
+    const grossHourly = totalGross / (totalMinutes / 60);
       avgHourlySummaryEl.textContent = `$${grossHourly.toFixed(2)}`;
-    } else {
-      avgHourlySummaryEl.textContent = '–';
+  } else {
+    avgHourlySummaryEl.textContent = '–';
     }
   } else {
     weekSummaryEl.textContent = `$${weekNet.toFixed(2)}`;
@@ -1095,8 +1206,11 @@ function importFromJson(event) {
         const newEntries = data.entries.filter(e => !existingDates.has(e.date));
         
         if (newEntries.length > 0) {
-          entries = [...entries, ...newEntries];
-          await saveEntries();
+          // Save each new entry individually
+          for (const newEntry of newEntries) {
+            entries.push(newEntry);
+            await saveEntry(newEntry, false);
+          }
           renderEntries();
           updateSummaries();
           alert(`Successfully imported ${newEntries.length} new entries.`);
@@ -1146,7 +1260,7 @@ async function loadEntries() {
             entries = parsed;
             console.log('Loaded entries from localStorage fallback:', parsed.length);
             // Migrate to Supabase
-            await saveEntries();
+            await saveAllEntries();
           }
         } catch (err) {
           console.error('Failed to parse localStorage fallback:', err);
@@ -1160,13 +1274,13 @@ async function loadEntries() {
     if (fallbackData) {
       try {
         const parsed = JSON.parse(fallbackData);
-        if (Array.isArray(parsed)) {
-          entries = parsed;
-        }
-      } catch (err) {
-        console.error('Failed to parse localStorage fallback:', err);
+      if (Array.isArray(parsed)) {
+        entries = parsed;
       }
+    } catch (err) {
+        console.error('Failed to parse localStorage fallback:', err);
     }
+  }
   }
   
   renderEntries();
