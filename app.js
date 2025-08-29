@@ -59,8 +59,8 @@ console.log('DOM elements found:', {
 });
 
 // Constants
-// Default MPG used to compute gallons (26 miles per gallon)
-const MPG = 26;
+// Default MPG used to compute gallons (30.9 miles per gallon)
+const MPG = 30.9;
 // Default gas price for ZIP 84062 derived from AAA Provo‑Orem metro average【710179261405807†L146-L152】.
 const DEFAULT_GAS_PRICE = 3.272;
 
@@ -443,10 +443,10 @@ function recalculate() {
   } else {
     milesDrivenEl.textContent = '–';
   }
-  // Gallons used: automatically computed from miles driven and a fixed MPG (26 mpg)
+  // Gallons used: automatically computed from miles driven and a fixed MPG (30.9 mpg)
   let gallons = NaN;
   if (!isNaN(miles)) {
-    gallons = miles / 26;
+    gallons = miles / MPG;
     gallonsUsedInput.textContent = gallons.toFixed(2);
   } else {
     gallonsUsedInput.textContent = '–';
